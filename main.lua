@@ -15,12 +15,13 @@ screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
 frame.Name = "MainFrame"
-frame.Size = UDim2.new(0, 220, 0, 360)
-frame.Position = UDim2.new(0, 20, 0.2, 0)
+frame.Size = UDim2.new(0, 220, 0, 520)
+frame.Position = UDim2.new(0, 20, 0.15, 0)
 frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
+frame.ClipsDescendants = true
 frame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
@@ -29,18 +30,36 @@ corner.Parent = frame
 
 -- Tiêu đề Menu
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
+title.Size = UDim2.new(1, -30, 0, 30)
+title.Position = UDim2.new(0, 5, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Dev Master Panel (Phím K: Ẩn/Hiện)"
+title.Text = "Dev Master Panel (K: Ẩn/Hiện)"
 title.TextColor3 = Color3.fromRGB(220, 220, 220)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 13
+title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = frame
+
+-- Nút Thu gọn / Mở rộng Menu
+local collapseBtn = Instance.new("TextButton")
+collapseBtn.Name = "CollapseButton"
+collapseBtn.Size = UDim2.new(0, 22, 0, 22)
+collapseBtn.Position = UDim2.new(1, -26, 0, 4)
+collapseBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+collapseBtn.Text = "-"
+collapseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+collapseBtn.Font = Enum.Font.SourceSansBold
+collapseBtn.TextSize = 16
+collapseBtn.Parent = frame
+
+local collapseCorner = Instance.new("UICorner")
+collapseCorner.CornerRadius = UDim.new(0, 4)
+collapseCorner.Parent = collapseBtn
 
 -- Danh sách nút bấm & Ô nhập liệu
 local container = Instance.new("ScrollingFrame")
-container.Size = UDim2.new(0.9, 0, 0.88, 0)
-container.Position = UDim2.new(0.05, 0, 0.09, 0)
+container.Size = UDim2.new(0.9, 0, 0.90, 0)
+container.Position = UDim2.new(0.05, 0, 0.08, 0)
 container.BackgroundTransparency = 1
 container.BorderSizePixel = 0
 container.ScrollBarThickness = 4
@@ -81,8 +100,14 @@ local function createTextBox(placeholder, defaultText)
 end
 
 -- Tạo các thành phần trên UI
+local godmodeBtn = createButton("Godmode (Xóa Neck): [TẮT]", Color3.fromRGB(180, 50, 50))
+local antiSlapBtn = createButton("Anti Slap / Knockback: [TẮT]", Color3.fromRGB(180, 50, 50))
 local jumpBtn = createButton("Nhảy vô hạn: [TẮT]", Color3.fromRGB(180, 50, 50))
 local noclipBtn = createButton("Xuyên tường: [TẮT]", Color3.fromRGB(180, 50, 50))
+
+local walkSpeedBox = createTextBox("Nhập tốc độ chạy...", "50")
+local walkSpeedBtn = createButton("Bật tốc độ chạy: [TẮT]", Color3.fromRGB(180, 50, 50))
+
 local flyBtn = createButton("Chế độ Bay: [TẮT]", Color3.fromRGB(180, 50, 50))
 local speedBox = createTextBox("Nhập tốc độ bay...", "50")
 
@@ -95,10 +120,16 @@ local unloadBtn = createButton("HỦY BỎ SCRIPT (UNLOAD)", Color3.fromRGB(120,
 ---------------------------------------------------------
 -- 2. CÁC BIẾN VÀ SỰ KIỆN ĐIỀU KHIỂN
 ---------------------------------------------------------
+local godmodeEnabled = false
+local antiSlapEnabled = false
 local infJumpEnabled = false
 local noclipEnabled = false
+local walkSpeedEnabled = false
 local flyEnabled = false
 local espEnabled = false
+local isCollapsed = false
+
+local customWalkSpeed = 50
 local flySpeed = 50
 
 -- Phím K để Ẩn/Hiện Menu
@@ -106,6 +137,30 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == Enum.KeyCode.K then
 		frame.Visible = not frame.Visible
+	end
+end)
+
+-- Xử lý Thu gọn / Mở rộng Menu
+collapseBtn.MouseButton1Click:Connect(function()
+	isCollapsed = not isCollapsed
+	if isCollapsed then
+		frame.Size = UDim2.new(0, 220, 0, 30)
+		container.Visible = false
+		collapseBtn.Text = "+"
+	else
+		frame.Size = UDim2.new(0, 220, 0, 520)
+		container.Visible = true
+		collapseBtn.Text = "-"
+	end
+end)
+
+-- Cập nhật tốc độ Chạy
+walkSpeedBox.FocusLost:Connect(function()
+	local num = tonumber(walkSpeedBox.Text)
+	if num then
+		customWalkSpeed = num
+	else
+		walkSpeedBox.Text = tostring(customWalkSpeed)
 	end
 end)
 
@@ -123,7 +178,37 @@ end)
 -- 3. LOGIC XỬ LÝ CHỨC NĂNG
 ---------------------------------------------------------
 
--- A. Nhảy Vô Hạn
+-- A. Bất Tử (Godmode)
+local function applyGodmode()
+	local char = player.Character
+	if not char then return end
+	local head = char:FindFirstChild("Head")
+	if head then
+		local neck = head:FindFirstChild("Neck")
+		if neck then
+			neck:Destroy()
+		end
+	end
+end
+
+godmodeBtn.MouseButton1Click:Connect(function()
+	godmodeEnabled = not godmodeEnabled
+	godmodeBtn.Text = godmodeEnabled and "Godmode: [BẬT]" or "Godmode: [TẮT]"
+	godmodeBtn.BackgroundColor3 = godmodeEnabled and Color3.fromRGB(0, 170, 100) or Color3.fromRGB(180, 50, 50)
+
+	if godmodeEnabled then
+		applyGodmode()
+	end
+end)
+
+-- B. Anti Slap / Knockback
+antiSlapBtn.MouseButton1Click:Connect(function()
+	antiSlapEnabled = not antiSlapEnabled
+	antiSlapBtn.Text = antiSlapEnabled and "Anti Slap / Knockback: [BẬT]" or "Anti Slap / Knockback: [TẮT]"
+	antiSlapBtn.BackgroundColor3 = antiSlapEnabled and Color3.fromRGB(0, 170, 100) or Color3.fromRGB(180, 50, 50)
+end)
+
+-- C. Nhảy Vô Hạn
 jumpBtn.MouseButton1Click:Connect(function()
 	infJumpEnabled = not infJumpEnabled
 	jumpBtn.Text = infJumpEnabled and "Nhảy vô hạn: [BẬT]" or "Nhảy vô hạn: [TẮT]"
@@ -138,25 +223,76 @@ UserInputService.JumpRequest:Connect(function()
 	end
 end)
 
--- B. Xuyên Tường (Noclip)
+-- D. Xuyên Tường (Noclip)
 noclipBtn.MouseButton1Click:Connect(function()
 	noclipEnabled = not noclipEnabled
 	noclipBtn.Text = noclipEnabled and "Xuyên tường: [BẬT]" or "Xuyên tường: [TẮT]"
 	noclipBtn.BackgroundColor3 = noclipEnabled and Color3.fromRGB(0, 170, 100) or Color3.fromRGB(180, 50, 50)
 end)
 
-RunService.Stepped:Connect(function()
-	if noclipEnabled then
+-- E. Tốc độ di chuyển (WalkSpeed)
+walkSpeedBtn.MouseButton1Click:Connect(function()
+	walkSpeedEnabled = not walkSpeedEnabled
+	walkSpeedBtn.Text = walkSpeedEnabled and "Tốc độ chạy: [BẬT]" or "Tốc độ chạy: [TẮT]"
+	walkSpeedBtn.BackgroundColor3 = walkSpeedEnabled and Color3.fromRGB(0, 170, 100) or Color3.fromRGB(180, 50, 50)
+
+	if not walkSpeedEnabled then
 		local char = player.Character
-		if char then
-			for _, part in ipairs(char:GetDescendants()) do
-				if part:IsA("BasePart") then part.CanCollide = false end
-			end
-		end
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum then hum.WalkSpeed = 16 end
 	end
 end)
 
--- C. Chế Độ Bay (Fly)
+-- Loop duy trì Godmode, Anti-Slap, Noclip và WalkSpeed
+RunService.Stepped:Connect(function()
+	local char = player.Character
+	if not char then return end
+
+	local hum = char:FindFirstChildOfClass("Humanoid")
+
+	-- Godmode
+	if godmodeEnabled and hum then
+		hum.Health = hum.MaxHealth
+		hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanTouch = false
+			end
+		end
+	end
+
+	-- Anti Slap / Knockback
+	if antiSlapEnabled then
+		if hum then
+			hum.PlatformStand = false
+			hum.Sit = false
+			hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+		end
+
+		for _, child in ipairs(char:GetDescendants()) do
+			if child:IsA("BodyVelocity") or child:IsA("BodyAngularVelocity") or child:IsA("BodyThrust") or child:IsA("LinearVelocity") or child:IsA("VectorForce") then
+				if not (flyEnabled and (child == bodyVelocity or child == bodyGyro)) then
+					child:Destroy()
+				end
+			end
+		end
+	end
+
+	-- Noclip
+	if noclipEnabled then
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then part.CanCollide = false end
+		end
+	end
+
+	-- WalkSpeed
+	if walkSpeedEnabled and hum then
+		hum.WalkSpeed = customWalkSpeed
+	end
+end)
+
+-- F. Chế Độ Bay (Fly)
 local bodyVelocity, bodyGyro
 
 local function stopFlying()
@@ -216,7 +352,7 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- D. Định vị Người chơi (ESP)
+-- G. Định vị Người chơi (ESP)
 local function applyESP(targetPlayer)
 	if targetPlayer == player then return end
 	local function setupChar(char)
@@ -250,7 +386,7 @@ espBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- E. Dịch chuyển (Teleport)
+-- H. Dịch chuyển (Teleport)
 tpBtn.MouseButton1Click:Connect(function()
 	local searchText = string.lower(tpBox.Text)
 	if searchText == "" then return end
@@ -276,15 +412,31 @@ tpBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- F. Dọn dẹp / Reset
+-- I. Dọn dẹp / Reset
 player.CharacterAdded:Connect(function()
 	flyEnabled = false
+	godmodeEnabled = false
+	antiSlapEnabled = false
+	walkSpeedEnabled = false
+	godmodeBtn.Text = "Godmode: [TẮT]"
+	godmodeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+	antiSlapBtn.Text = "Anti Slap / Knockback: [TẮT]"
+	antiSlapBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+	walkSpeedBtn.Text = "Tốc độ chạy: [TẮT]"
+	walkSpeedBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
 	flyBtn.Text = "Chế độ Bay: [TẮT]"
 	flyBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
 	stopFlying()
 end)
 
 unloadBtn.MouseButton1Click:Connect(function()
+	godmodeEnabled = false
+	antiSlapEnabled = false
+	walkSpeedEnabled = false
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then hum.WalkSpeed = 16 end
+
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p.Character then
 			local hl = p.Character:FindFirstChild("DevESPHighlight")
@@ -294,4 +446,3 @@ unloadBtn.MouseButton1Click:Connect(function()
 	stopFlying()
 	screenGui:Destroy()
 end)
-
