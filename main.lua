@@ -1,4 +1,4 @@
--- [[ DEV MOVEMENT + SPECTATE V14 (AIMBOT & FPS BOOSTER ENHANCED) ]] --
+-- [[ DEV MASTER V15 PRO - COMPLETE COMBINED SCRIPT ]] --
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -7,6 +7,7 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -62,7 +63,7 @@ end
 -- 1. KHỞI TẠO GUI CHÍNH
 ---------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DevWindowGui_V14"
+screenGui.Name = "DevWindowGui_V15"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -111,7 +112,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -100, 1, 0)
 title.Position = UDim2.new(0, 15, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "DEV MASTER V14 PRO (AIMBOT & BOOST)"
+title.Text = "DEV MASTER V15 PRO (HITBOX & AIMBOT)"
 title.TextColor3 = Color3.fromRGB(240, 240, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 13
@@ -260,7 +261,7 @@ local function createTab(name)
 end
 
 local tabMain = createTab("Trạng Thái")
-local tabAimbot = createTab("Aimbot Pro")
+local tabCombat = createTab("Combat & Hitbox")
 local tabMove = createTab("Di Chuyển")
 local tabWaypoint = createTab("Waypoint")
 local tabVisual = createTab("ESP & Khác")
@@ -322,6 +323,13 @@ local timeLabel = createStatCard("PLAYTIME", "00:00:00")
 ---------------------------------------------------------
 -- UI BUILDERS
 ---------------------------------------------------------
+local function updateButtonState(btn, state)
+	btn.Text = state and "BẬT" or "TẮT"
+	createTween(btn, TweenInfo.new(0.2), {
+		BackgroundColor3 = state and Color3.fromRGB(0, 180, 120) or Color3.fromRGB(200, 50, 60)
+	})
+end
+
 local function createToggle(parent, text)
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, -6, 0, 34)
@@ -411,14 +419,20 @@ local function createActionButton(parent, text, color)
 end
 
 ---------------------------------------------------------
--- 4. TÍNH NĂNG AIMBOT PRO
+-- 4. COMBAT, AIMBOT & HITBOX EXPANDER
 ---------------------------------------------------------
-local aimbotToggleBtn = createToggle(tabAimbot, "Aimbot (Giữ Chuột Phải)")
-local aimPartBox, _ = createInputGroup(tabAimbot, "Bộ Phận Nhắm", "Head")
-local fovToggleBtn = createToggle(tabAimbot, "Hiện Vòng FOV")
-local fovRadiusBox, _ = createInputGroup(tabAimbot, "Bán Kính FOV", "120")
-local aimSmoothBox, _ = createInputGroup(tabAimbot, "Độ Mượt (Smooth 0.1-1)", "0.2")
-local wallCheckBtn = createToggle(tabAimbot, "Wall Check (Kiểm Tra Tường)")
+local hitboxToggleBtn = createToggle(tabCombat, "Hitbox Expander (Mở Rộng Hitbox)")
+local hitboxSizeBox, _ = createInputGroup(tabCombat, "Kích Thước Hitbox (1-50)", "5")
+local aimbotToggleBtn = createToggle(tabCombat, "Aimbot (Giữ Chuột Phải)")
+local aimPartBox, _ = createInputGroup(tabCombat, "Bộ Phận Nhắm", "Head")
+local fovToggleBtn = createToggle(tabCombat, "Hiện Vòng FOV")
+local fovRadiusBox, _ = createInputGroup(tabCombat, "Bán Kính FOV", "120")
+local aimSmoothBox, _ = createInputGroup(tabCombat, "Độ Mượt (Smooth 0.1-1)", "0.2")
+local wallCheckBtn = createToggle(tabCombat, "Wall Check (Kiểm Tra Tường)")
+
+local hitboxEnabled = false
+local hitboxSize = 5
+local originalSizes = {}
 
 local aimbotEnabled = false
 local fovCircleEnabled = false
@@ -434,6 +448,36 @@ fovCircle.Filled = false
 fovCircle.Transparency = 1
 fovCircle.Visible = false
 
+-- HITBOX LOGIC
+local function resetHitboxes()
+	for rootPart, size in pairs(originalSizes) do
+		if rootPart and rootPart.Parent then
+			rootPart.Size = size
+			rootPart.Transparency = 1
+			rootPart.CanCollide = true
+		end
+	end
+	originalSizes = {}
+end
+
+hitboxSizeBox.FocusLost:Connect(function()
+	local num = tonumber(hitboxSizeBox.Text)
+	if num then
+		hitboxSize = math.clamp(num, 1, 50)
+	else
+		hitboxSizeBox.Text = tostring(hitboxSize)
+	end
+end)
+
+hitboxToggleBtn.MouseButton1Click:Connect(function()
+	hitboxEnabled = not hitboxEnabled
+	updateButtonState(hitboxToggleBtn, hitboxEnabled)
+	if not hitboxEnabled then
+		resetHitboxes()
+	end
+end)
+
+-- AIMBOT LOGIC
 local function isPartVisible(part)
 	if not wallCheckEnabled then return true end
 	local origin = camera.CFrame.Position
@@ -801,13 +845,6 @@ local autoTpEnabled = false
 local autoTpInterval = 3
 local autoTpThread = nil
 
-local function updateButtonState(btn, state)
-	btn.Text = state and "BẬT" or "TẮT"
-	createTween(btn, TweenInfo.new(0.2), {
-		BackgroundColor3 = state and Color3.fromRGB(0, 180, 120) or Color3.fromRGB(200, 50, 60)
-	})
-end
-
 local function addWaypointUI(name, cframe)
 	local itemData = {Name = name, CFrame = cframe}
 	table.insert(waypointsList, itemData)
@@ -958,7 +995,6 @@ local origBrightness, origClockTime = Lighting.Brightness, Lighting.ClockTime
 local spectateConnection = nil
 local lastSafeCFrame = nil
 
--- FREECAM SMOOTH CAMERA SYSTEM (WASD + E/Q + MOUSE2 ROTATION)
 local freecamCFrame = CFrame.new()
 local freecamYaw = 0
 local freecamPitch = 0
@@ -1132,7 +1168,9 @@ local function unloadAllFeatures()
 	clickTpEnabled, infJumpEnabled, noclipEnabled, walkSpeedEnabled = false, false, false, false
 	jumpPowerEnabled, longJumpEnabled, flyEnabled, espEnabled = false, false, false, false
 	fullbrightEnabled, antiAfkEnabled = false, false
-	aimbotEnabled, fovCircleEnabled = false, false
+	aimbotEnabled, fovCircleEnabled, hitboxEnabled = false, false, false
+
+	resetHitboxes()
 
 	if fovCircle then fovCircle:Remove() end
 	if freecamEnabled then toggleFreecam() end
@@ -1165,7 +1203,7 @@ logoBtn.MouseButton1Click:Connect(function() mainFrame.Visible = not mainFrame.V
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.K then 
+	if input.KeyCode == Enum.KeyCode.K or input.KeyCode == Enum.KeyCode.RightShift then 
 		mainFrame.Visible = not mainFrame.Visible 
 	elseif input.KeyCode == keybinds.Freecam then
 		toggleFreecam()
@@ -1336,11 +1374,32 @@ player.Idled:Connect(function()
 	end
 end)
 
--- Render Loops
+-- RENDER LOOPS
 RunService.RenderStepped:Connect(function()
 	if fullbrightEnabled then
 		Lighting.Brightness = 2
 		Lighting.ClockTime = 14
+	end
+
+	-- HITBOX EXPANDER LOOP
+	if hitboxEnabled then
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= player and p.Character then
+				local humanoid = p.Character:FindFirstChildOfClass("Humanoid")
+				local rootPart = p.Character:FindFirstChild("HumanoidRootPart")
+
+				if humanoid and humanoid.Health > 0 and rootPart then
+					if not originalSizes[rootPart] then
+						originalSizes[rootPart] = rootPart.Size
+					end
+					rootPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+					rootPart.Transparency = 0.7
+					rootPart.Color = Color3.fromRGB(255, 0, 0)
+					rootPart.Material = Enum.Material.SmoothPlastic
+					rootPart.CanCollide = false
+				end
+			end
+		end
 	end
 
 	-- AIMBOT LOOP
@@ -1473,6 +1532,11 @@ Players.PlayerRemoving:Connect(function(leavingPlayer)
 		local bb = leavingPlayer.Character:FindFirstChild("DevESPBillboard")
 		if hl then hl:Destroy() end
 		if bb then bb:Destroy() end
+
+		local rootPart = leavingPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if rootPart and originalSizes[rootPart] then
+			originalSizes[rootPart] = nil
+		end
 	end
 end)
 
