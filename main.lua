@@ -1,9 +1,14 @@
 --[[
-    DEV MASTER ULTIMATE V3 – SLIDER CÓ Ô NHẬP SỐ
-    Mỗi thanh trượt đều có ô nhập giá trị trực tiếp.
-    ESP dùng Highlight + Billboard.
-    Logo chỉ đóng menu.
-    Bấm K hoặc RightShift để mở/đóng menu.
+    DEV MASTER ULTIMATE V4 – KẾ THỪA FLING CỦA INFINITE YIELD
+    - Giao diện slider, toggle, dropdown
+    - Combat: Aimbot, Triggerbot, Hitbox, No Recoil, v.v.
+    - Movement: Fly, Noclip, Speed, Jump, Freecam, v.v.
+    - Fling: fling, walkfling, flyfling, invisfling (từ IY)
+    - ESP Highlight + Billboard
+    - Waypoint, Auto TP
+    - FPS Boost, Keybinds, Settings, Lưu/Load Config
+    - Nút tắt toàn bộ script
+    - Logo toggle menu, chỉ dùng phím K
 --]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -72,7 +77,6 @@ local function createSlider(parent, labelText, minVal, maxVal, defaultVal, callb
     frame.Parent = parent
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
-    -- Nhãn
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(0.38, 0, 1, 0)
     label.Position = UDim2.new(0, 10, 0, 0)
@@ -84,7 +88,6 @@ local function createSlider(parent, labelText, minVal, maxVal, defaultVal, callb
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
 
-    -- Thanh trượt
     local track = Instance.new("Frame")
     track.Size = UDim2.new(0.28, 0, 0.35, 0)
     track.Position = UDim2.new(0.40, 0, 0.3, 0)
@@ -109,7 +112,7 @@ local function createSlider(parent, labelText, minVal, maxVal, defaultVal, callb
     knob.Parent = track
     Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
-    -- Ô nhập số (TextBox)
+    -- Ô nhập số
     local valueBox = Instance.new("TextBox")
     valueBox.Size = UDim2.new(0.17, 0, 0.75, 0)
     valueBox.Position = UDim2.new(0.81, 0, 0.12, 0)
@@ -124,7 +127,6 @@ local function createSlider(parent, labelText, minVal, maxVal, defaultVal, callb
 
     local dragging = false
     local function updateSlider(val)
-        -- Giới hạn giá trị
         if val < minVal then val = minVal end
         if val > maxVal then val = maxVal end
         local percent = (val - minVal) / (maxVal - minVal)
@@ -167,29 +169,25 @@ local function createSlider(parent, labelText, minVal, maxVal, defaultVal, callb
         end
     end)
 
-    -- Xử lý nhập số từ TextBox
     valueBox.FocusLost:Connect(function()
         local num = tonumber(valueBox.Text)
         if num then
             num = math.clamp(num, minVal, maxVal)
             updateSlider(num)
         else
-            -- Nếu nhập không hợp lệ, khôi phục giá trị hiện tại (lấy từ fill)
             local currentPercent = fill.Size.X.Scale
             local currentVal = minVal + (maxVal - minVal) * currentPercent
             valueBox.Text = tostring(math.round(currentVal * 100) / 100)
         end
     end)
 
-    -- Trả về object
-    local obj = {
+    return {
         frame = frame,
         fill = fill,
         knob = knob,
         valueBox = valueBox,
         update = updateSlider
     }
-    return obj
 end
 
 -- Tạo dropdown
@@ -249,11 +247,11 @@ end
 -- TẠO GUI CHÍNH
 ---------------------------------------------------------
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DevMasterUltimateV3"
+screenGui.Name = "DevMasterUltimateV4"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Logo (luôn hiển thị)
+-- Logo (toggle menu)
 local logoBtn = Instance.new("TextButton")
 logoBtn.Size = UDim2.new(0, 50, 0, 50)
 logoBtn.Position = UDim2.new(0, 15, 0.4, 0)
@@ -298,7 +296,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -100, 1, 0)
 title.Position = UDim2.new(0, 15, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "⚡ DEV MASTER ULTIMATE V3"
+title.Text = "⚡ DEV MASTER ULTIMATE V4"
 title.TextColor3 = Color3.fromRGB(240, 240, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 15
@@ -451,6 +449,7 @@ end
 local tabMain = createTab("Trạng Thái", "📊")
 local tabCombat = createTab("Combat", "⚔️")
 local tabMove = createTab("Di Chuyển", "🏃")
+local tabFling = createTab("Fling", "🌀")         -- Tab Fling mới
 local tabWaypoint = createTab("Waypoint", "📍")
 local tabVisual = createTab("ESP & Khác", "👁️")
 local tabMisc = createTab("Misc", "🎮")
@@ -587,6 +586,11 @@ local featureStates = {
     flyEnabled = false,
     autoJumpEnabled = false,
     autoSprintEnabled = false,
+    -- Fling
+    flingEnabled = false,
+    walkflingEnabled = false,
+    flyflingEnabled = false,
+    invisflingEnabled = false,
     -- Visual
     espEnabled = false,
     fullbrightEnabled = false,
@@ -610,6 +614,16 @@ local autoTpInterval = 3
 local autoClickDelay = 0.1
 local autoCollectRadius = 20
 local rapidFireDelay = 0.05
+
+-- Biến cho fling
+local flingRunning = false
+local walkflingRunning = false
+local flyflingRunning = false
+local invisflingRunning = false
+local flingDied = nil
+local walkflingLoop = nil
+local flyflingLoop = nil
+local invisflingLoop = nil
 
 -- Lưu slider
 local sliders = {}
@@ -666,7 +680,6 @@ local hitboxSlider = createSlider(tabCombat, "Kích Thước Hitbox", 1, 50, 5, 
 end)
 addSlider("hitboxSize", hitboxSlider)
 
--- Weapon mods
 local noRecoilBtn = createToggle(tabCombat, "No Recoil")
 local infiniteAmmoBtn = createToggle(tabCombat, "Infinite Ammo")
 local rapidFireBtn = createToggle(tabCombat, "Rapid Fire")
@@ -710,7 +723,21 @@ addSlider("flySpeed", flySpeedSlider)
 local flyBtn = createToggle(tabMove, "Bay (Fly)")
 
 ---------------------------------------------------------
--- WAYPOINT TAB
+-- FLING TAB (lấy từ IY)
+---------------------------------------------------------
+local flingBtn = createToggle(tabFling, "Fling (đẩy cực mạnh)")
+local walkflingBtn = createToggle(tabFling, "Walk Fling (chạy đẩy)")
+local flyflingBtn = createToggle(tabFling, "Fly Fling (bay đẩy)")
+local invisflingBtn = createToggle(tabFling, "Invis Fling (tàng hình + đẩy)")
+
+-- Slider điều chỉnh tốc độ flyfling (nếu cần)
+local flyflingSpeedSlider = createSlider(tabFling, "FlyFling Speed", 1, 100, 20, function(val)
+    -- Sẽ dùng khi bật flyfling
+end)
+addSlider("flyflingSpeed", flyflingSpeedSlider)
+
+---------------------------------------------------------
+-- WAYPOINT TAB (giữ nguyên từ V3)
 ---------------------------------------------------------
 local fileName = "DevWaypoints_" .. tostring(game.PlaceId) .. ".json"
 local waypointsList = {}
@@ -903,13 +930,12 @@ autoTpToggleBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- VISUAL TAB (ESP dùng Highlight + Billboard từ V16)
+-- VISUAL TAB (ESP Highlight + Billboard)
 ---------------------------------------------------------
 local espBtn = createToggle(tabVisual, "ESP Người Chơi")
 local fullbrightBtn = createToggle(tabVisual, "Fullbright")
 local antiAfkBtn = createToggle(tabVisual, "Anti-AFK")
 
--- Teleport & Spectate
 local tpFrame = Instance.new("Frame")
 tpFrame.Size = UDim2.new(1, -6, 0, 42)
 tpFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
@@ -950,7 +976,6 @@ spectateBtn.TextSize = 14
 spectateBtn.Parent = tpFrame
 Instance.new("UICorner", spectateBtn).CornerRadius = UDim.new(0, 6)
 
--- Server control
 local serverControlFrame = Instance.new("Frame")
 serverControlFrame.Size = UDim2.new(1, -6, 0, 42)
 serverControlFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
@@ -1004,7 +1029,7 @@ serverHopBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- ESP SYSTEM (Highlight + Billboard từ V16)
+-- ESP SYSTEM (Highlight + Billboard)
 ---------------------------------------------------------
 local function updateESP()
     for _, p in ipairs(Players:GetPlayers()) do
@@ -1103,7 +1128,6 @@ Players.PlayerRemoving:Connect(function(p)
     end
 end)
 
--- ESP update loop
 task.spawn(function()
     while screenGui.Parent do
         if featureStates.espEnabled then updateESP() end
@@ -1252,11 +1276,17 @@ createKeybindRow(tabKeybinds, "Aimbot", "Aimbot")
 ---------------------------------------------------------
 -- SETTINGS TAB
 ---------------------------------------------------------
-local configFileName = "DevConfig_UltimateV3_" .. game.PlaceId .. ".json"
+local configFileName = "DevConfig_UltimateV4_" .. game.PlaceId .. ".json"
 
 local saveConfigBtn = createActionButton(tabSettings, "💾 Lưu Cấu Hình", Color3.fromRGB(0, 140, 240))
 local loadConfigBtn = createActionButton(tabSettings, "📂 Tải Cấu Hình", Color3.fromRGB(200, 140, 0))
 local resetConfigBtn = createActionButton(tabSettings, "🔄 Reset Cài Đặt", Color3.fromRGB(200, 50, 60))
+
+-- Nút tắt script
+local killScriptBtn = createActionButton(tabSettings, "⛔ TẮT TOÀN BỘ SCRIPT", Color3.fromRGB(200, 50, 70))
+killScriptBtn.MouseButton1Click:Connect(function()
+    confirmModal.Visible = true
+end)
 
 local function getCurrentConfig()
     return {
@@ -1474,7 +1504,6 @@ local function isPartVisible(part)
     return result == nil
 end
 
--- FOV Circle
 local hasDrawing = Drawing ~= nil
 local fovCircle
 if hasDrawing then
@@ -1609,6 +1638,264 @@ espBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
+-- FLING LOGIC (lấy từ IY)
+---------------------------------------------------------
+-- Hàm unfling (tắt fling)
+local function unfling()
+    flingRunning = false
+    if flingDied then flingDied:Disconnect() end
+    -- Xóa BodyAngularVelocity
+    local char = player.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        local root = getRoot(char)
+        if root then
+            for _, v in pairs(root:GetChildren()) do
+                if v:IsA("BodyAngularVelocity") and v.Name == "IYFlingAngular" then
+                    v:Destroy()
+                end
+            end
+            -- Khôi phục các thuộc tính
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5)
+                    part.Massless = false
+                    part.Velocity = Vector3.zero
+                end
+            end
+        end
+    end
+    -- Tắt noclip nếu đã bật
+    if featureStates.noclipEnabled then
+        featureStates.noclipEnabled = false
+        updateToggle(noclipBtn, false)
+        execCmd("unnoclip nonotify")
+    end
+end
+
+-- Hàm fling chính
+local function fling()
+    unfling()
+    local char = player.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    local root = getRoot(char)
+    if not root then return end
+
+    -- Bật noclip
+    if not featureStates.noclipEnabled then
+        featureStates.noclipEnabled = true
+        updateToggle(noclipBtn, true)
+        execCmd("noclip nonotify")
+    end
+
+    -- Tăng sức mạnh fling
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CustomPhysicalProperties = PhysicalProperties.new(100, 0.3, 0.5)
+            part.Massless = true
+            part.Velocity = Vector3.zero
+        end
+    end
+
+    -- BodyAngularVelocity để tạo lực xoay
+    local angular = Instance.new("BodyAngularVelocity")
+    angular.Name = "IYFlingAngular"
+    angular.Parent = root
+    angular.AngularVelocity = Vector3.new(0, 99999, 0)
+    angular.MaxTorque = Vector3.new(0, math.huge, 0)
+    angular.P = math.huge
+
+    flingRunning = true
+    flingDied = humanoid.Died:Connect(function()
+        unfling()
+    end)
+
+    -- Vòng lặp duy trì fling
+    task.spawn(function()
+        while flingRunning do
+            if root and root.Parent then
+                angular.AngularVelocity = Vector3.new(0, 99999, 0)
+            end
+            task.wait(0.2)
+            if root and root.Parent then
+                angular.AngularVelocity = Vector3.new(0, 0, 0)
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+-- Walk Fling (bản sao từ IY, điều chỉnh)
+local function walkfling()
+    unfling()
+    walkflingRunning = true
+    local char = player.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    -- Bật noclip
+    if not featureStates.noclipEnabled then
+        featureStates.noclipEnabled = true
+        updateToggle(noclipBtn, true)
+        execCmd("noclip nonotify")
+    end
+
+    walkflingLoop = RunService.Heartbeat:Connect(function()
+        if not walkflingRunning then return end
+        local char = player.Character
+        local root = char and getRoot(char)
+        if root and root.Parent then
+            local vel = root.Velocity
+            root.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+            task.wait(0.1)
+            if root and root.Parent then
+                root.Velocity = vel
+            end
+            task.wait(0.1)
+            if root and root.Parent then
+                root.Velocity = vel + Vector3.new(0, 0.1, 0)
+            end
+        end
+    end)
+
+    humanoid.Died:Connect(function()
+        unwalkfling()
+    end)
+end
+
+local function unwalkfling()
+    walkflingRunning = false
+    if walkflingLoop then walkflingLoop:Disconnect() end
+    -- Tắt noclip nếu đã bật
+    if featureStates.noclipEnabled then
+        featureStates.noclipEnabled = false
+        updateToggle(noclipBtn, false)
+        execCmd("unnoclip nonotify")
+    end
+end
+
+-- Fly Fling (kết hợp fly + fling)
+local function flyfling()
+    unfling()
+    flyflingRunning = true
+    -- Bật fly
+    if not featureStates.flyEnabled then
+        featureStates.flyEnabled = true
+        updateToggle(flyBtn, true)
+        execCmd("fly nonotify")
+    end
+    -- Bật noclip
+    if not featureStates.noclipEnabled then
+        featureStates.noclipEnabled = true
+        updateToggle(noclipBtn, true)
+        execCmd("noclip nonotify")
+    end
+    -- Điều chỉnh speed (nếu cần)
+    flyflingLoop = RunService.Heartbeat:Connect(function()
+        if not flyflingRunning then return end
+        local char = player.Character
+        local root = char and getRoot(char)
+        if root and root.Parent then
+            root.Velocity = root.Velocity * 1.1 + Vector3.new(0, 10, 0)
+        end
+    end)
+    player.CharacterAdded:Connect(function()
+        unflyfling()
+    end)
+end
+
+local function unflyfling()
+    flyflingRunning = false
+    if flyflingLoop then flyflingLoop:Disconnect() end
+    if featureStates.flyEnabled then
+        featureStates.flyEnabled = false
+        updateToggle(flyBtn, false)
+        execCmd("unfly nonotify")
+    end
+    if featureStates.noclipEnabled then
+        featureStates.noclipEnabled = false
+        updateToggle(noclipBtn, false)
+        execCmd("unnoclip nonotify")
+    end
+end
+
+-- Invis Fling (tàng hình + fling)
+local function invisfling()
+    unfling()
+    invisflingRunning = true
+    -- Thực hiện tàng hình (cách đơn giản: set transparency)
+    local char = player.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 1
+            end
+        end
+    end
+    -- Bật fling
+    fling()
+    player.CharacterAdded:Connect(function()
+        uninvisfling()
+    end)
+end
+
+local function uninvisfling()
+    invisflingRunning = false
+    unfling()
+    local char = player.Character
+    if char then
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 0
+            end
+        end
+    end
+end
+
+-- Kết nối các toggle fling
+flingBtn.MouseButton1Click:Connect(function()
+    featureStates.flingEnabled = not featureStates.flingEnabled
+    updateToggle(flingBtn, featureStates.flingEnabled)
+    if featureStates.flingEnabled then
+        fling()
+    else
+        unfling()
+    end
+end)
+
+walkflingBtn.MouseButton1Click:Connect(function()
+    featureStates.walkflingEnabled = not featureStates.walkflingEnabled
+    updateToggle(walkflingBtn, featureStates.walkflingEnabled)
+    if featureStates.walkflingEnabled then
+        walkfling()
+    else
+        unwalkfling()
+    end
+end)
+
+flyflingBtn.MouseButton1Click:Connect(function()
+    featureStates.flyflingEnabled = not featureStates.flyflingEnabled
+    updateToggle(flyflingBtn, featureStates.flyflingEnabled)
+    if featureStates.flyflingEnabled then
+        flyfling()
+    else
+        unflyfling()
+    end
+end)
+
+invisflingBtn.MouseButton1Click:Connect(function()
+    featureStates.invisflingEnabled = not featureStates.invisflingEnabled
+    updateToggle(invisflingBtn, featureStates.invisflingEnabled)
+    if featureStates.invisflingEnabled then
+        invisfling()
+    else
+        uninvisfling()
+    end
+end)
+
+---------------------------------------------------------
 -- FREECAM & FLY
 ---------------------------------------------------------
 local freecamCFrame = CFrame.new()
@@ -1732,13 +2019,14 @@ spectateBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- INPUT HANDLING (sửa: logo không ẩn, chỉ đóng menu)
+-- INPUT HANDLING (chỉ K, bỏ RightShift)
 ---------------------------------------------------------
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.K or input.KeyCode == Enum.KeyCode.RightShift then
+    if input.KeyCode == Enum.KeyCode.K then
         mainFrame.Visible = not mainFrame.Visible
-        -- Logo luôn hiển thị, không thay đổi
+    elseif input.KeyCode == Enum.KeyCode.RightShift then
+        -- Bỏ qua
     elseif input.KeyCode == keybinds.Freecam then
         toggleFreecam()
     elseif input.KeyCode == keybinds.Fly then
@@ -1982,7 +2270,7 @@ RunService.Stepped:Connect(function()
 end)
 
 ---------------------------------------------------------
--- MINIMIZE & CLOSE (giữ nguyên)
+-- MINIMIZE & CLOSE
 ---------------------------------------------------------
 local isMinimized = false
 minimizeBtn.MouseButton1Click:Connect(function()
@@ -2005,12 +2293,9 @@ closeBtn.MouseButton1Click:Connect(function() confirmModal.Visible = true end)
 confirmYesBtn.MouseButton1Click:Connect(function() unloadAllFeatures() end)
 confirmNoBtn.MouseButton1Click:Connect(function() confirmModal.Visible = false end)
 
--- Logo: chỉ đóng menu (không mở, không ẩn logo)
+-- Logo toggle menu
 logoBtn.MouseButton1Click:Connect(function()
-    if mainFrame.Visible then
-        mainFrame.Visible = false
-    end
-    -- Logo luôn hiển thị
+    mainFrame.Visible = not mainFrame.Visible
 end)
 
 ---------------------------------------------------------
@@ -2042,6 +2327,16 @@ local function unloadAllFeatures()
     featureStates.freecamEnabled = false
     featureStates.autoClickEnabled = false
     featureStates.autoCollectEnabled = false
+    featureStates.flingEnabled = false
+    featureStates.walkflingEnabled = false
+    featureStates.flyflingEnabled = false
+    featureStates.invisflingEnabled = false
+
+    -- Tắt các fling
+    unfling()
+    unwalkfling()
+    unflyfling()
+    uninvisfling()
 
     resetHitboxes()
     if fovCircle then fovCircle:Remove() end
@@ -2074,7 +2369,8 @@ _G.DevMasterUnload = unloadAllFeatures
 local originalBrightness = Lighting.Brightness
 local originalClockTime = Lighting.ClockTime
 
-print("✅ DEV MASTER ULTIMATE V3 – Slider có ô nhập số loaded!")
-print("📌 Bấm K hoặc RightShift để mở menu.")
-print("📌 Mỗi thanh trượt đều có ô nhập giá trị bên phải.")
-print("📌 Logo chỉ đóng menu (không ẩn).")
+print("✅ DEV MASTER ULTIMATE V4 – Fling from IY loaded!")
+print("📌 Bấm K để mở menu (RightShift bỏ).")
+print("📌 Logo bấm toggle menu.")
+print("📌 Tab Fling: fling, walkfling, flyfling, invisfling (đều cực mạnh).")
+print("📌 Nút tắt script trong tab Cài Đặt.")
